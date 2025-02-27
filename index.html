@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Block Blast</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+        
+        body {
+            background-color: #1a1a2e;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .game-container {
+            width: 100%;
+            max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background-color: #16213e;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        .score-container, .moves-container, .time-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .label {
+            font-size: 14px;
+            color: #8e9aaf;
+        }
+        
+        .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #e94560;
+        }
+        
+        .game-board {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            background-color: #0f3460;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            overflow: hidden;
+            display: grid;
+            gap: 4px;
+            padding: 4px;
+        }
+        
+        .block {
+            border-radius: 8px;
+            box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            transition: transform 0.2s, opacity 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            user-select: none;
+        }
+        
+        .block:hover {
+            transform: scale(0.95);
+            opacity: 0.9;
+        }
+        
+        .block.selected {
+            transform: scale(0.9);
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.5);
+        }
+        
+        .block.matched {
+            animation: pulse 0.5s infinite alternate;
+        }
+        
+        @keyframes pulse {
+            from {
+                transform: scale(1);
+                opacity: 1;
+            }
+            to {
+                transform: scale(0.9);
+                opacity: 0.8;
+            }
+        }
+        
+        .controls {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        
+        .button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background-color: #e94560;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        .button:hover {
+            background-color: #ff6b81;
+        }
+        
+        .reset-button {
+            background-color: #533483;
+        }
+        
+        .reset-button:hover {
+            background-color: #6741b7;
+        }
+        
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 100;
+        }
+        
+        .modal.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        .modal-content {
+            background-color: #16213e;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 90%;
+            width: 400px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            transform: scale(0.9);
+            transition: transform 0.3s;
+        }
+        
+        .modal.active .modal-content {
+            transform: scale(1);
+        }
+        
+        .modal-title {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: #e94560;
+        }
+        
+        .modal-score {
+            font-size: 24px;
+            margin-bottom: 30px;
+        }
+        
+        .level-indicator {
+            width: 100%;
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .level-text {
+            font-size: 18px;
+            color: #8e9aaf;
+        }
+        
+        .level-value {
+            font-size: 22px;
+            font-weight: bold;
+            color: #e94560;
+        }
+        
+        /* Адаптивность для мобильных устройств */
+        @media (max-width: 600px) {
+            .header {
+                padding: 8px;
+            }
+            
+            .label {
+                font-size: 12px;
+            }
+            
+            .value {
+                font-size: 20px;
+            }
+            
+            .game-board {
+                gap: 3px;
+                padding: 3px;
+            }
+            
+            .block {
+                border-radius: 6px;
+            }
+            
+            .button {
+                padding: 10px;
+                font-size: 14px;
+            }
+            
+            .modal-title {
+                font-size: 24px;
+            }
+            
+            .modal-score {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1 style="margin-bottom: 20px; text-align: center; color: #e94560;">Block Blast</h1>
+        
+        <div class="header">
+            <div class="score-container">
+                <div class="label">СЧЕТ</div>
+                <div class="value" id="score">0</div>
+            </div>
+            
+            <div class="level-indicator">
+                <div class="level-text">УРОВЕНЬ:</div>
+                <div class="level-value" id="level">1</div>
+            </div>
+            
+            <div class="moves-container">
+                <div class="label">ХОДЫ</div>
+                <div class="value" id="moves">30</div>
+            </div>
+        </div>
+        
+        <div class="game-board" id="gameBoard"></div>
+        
+        <div class="controls">
+            <button class="button reset-button" id="resetButton">СБРОС</button>
+            <button class="button" id="helpButton">ПОДСКАЗКА</button>
+        </div>
+    </div>
+    
+    <div class="modal" id="gameOverModal">
+        <div class="modal-content">
+            <h2 class="modal-title">Игра окончена!</h2>
+            <p class="modal-score">Ваш счет: <span id="finalScore">0</span></p>
+            <button class="button" id="playAgainButton">Играть снова</button>
+        </div>
+    </div>
+    
+    <div class="modal" id="levelUpModal">
+        <div class="modal-content">
+            <h2 class="modal-title">Уровень пройден!</h2>
+            <p class="modal-score">Новый уровень: <span id="newLevel">2</span></p>
+            <button class="button" id="nextLevelButton">Продолжить</button>
+        </div>
+    </div>
+    
+    <script>
+        class BlockBlastGame {
+            constructor() {
+                // Игровые настройки
+                this.boardSize = 8;  // размер игрового поля 8x8
+                this.colors = [
+                    '#e94560', '#0ea3e9', '#4ade80', '#fbbf24', '#c084fc', '#f472b6'
+                ];
+                this.baseScore = 10;  // базовый счет за каждый блок
+                this.comboMultiplier = 1.5;  // множитель за комбо
+                this.maxMoves = 30;  // количество ходов на уровень
+                
+                // Состояние игры
+                this.board = [];
+                this.score = 0;
+                this.moves = this.maxMoves;
+                this.level = 1;
+                this.selectedBlocks = [];
+                this.isProcessing = false;
+                
+                // Элементы DOM
+                this.gameBoard = document.getElementById('gameBoard');
+                this.scoreElement = document.getElementById('score');
+                this.movesElement = document.getElementById('moves');
+                this.levelElement = document.getElementById('level');
+                this.resetButton = document.getElementById('resetButton');
+                this.helpButton = document.getElementById('helpButton');
+                this.gameOverModal = document.getElementById('gameOverModal');
+                this.levelUpModal = document.getElementById('levelUpModal');
+                this.finalScoreElement = document.getElementById('finalScore');
+                this.newLevelElement = document.getElementById('newLevel');
+                this.playAgainButton = document.getElementById('playAgainButton');
+                this.nextLevelButton = document.getElementById('nextLevelButton');
+                
+                // Инициализация обработчиков событий
+                this.resetButton.addEventListener('click', () => this.resetGame());
+                this.helpButton.addEventListener('click', () => this.showHint());
+                this.playAgainButton.addEventListener('click', () => {
+                    this.level = 1;
+                    this.resetGame();
+                    this.hideModal(this.gameOverModal);
+                });
+                this.nextLevelButton.addEventListener('click', () => {
+                    this.resetGame();
+                    this.hideModal(this.levelUpModal);
+                });
+                
+                // Инициализация игры
+                this.initializeGame();
+                
+                // Добавить обработчик изменения размера окна
+                window.addEventListener('resize', () => this.resizeBlocks());
+            }
+            
+            // Инициализация игры
+            initializeGame() {
+                this.setUpBoard();
+                this.createBoard();
+                this.updateScore();
+                this.updateMoves();
+                this.updateLevel();
+            }
+            
+            // Настройка игрового поля
+            setUpBoard() {
+                // Очистка предыдущего поля
+                this.board = [];
+                this.gameBoard.innerHTML = '';
+                
+                // Создание CSS сетки для игрового поля
+                this.gameBoard.style.gridTemplateColumns = `repeat(${this.boardSize}, 1fr)`;
+                this.gameBoard.style.gridTemplateRows = `repeat(${this.boardSize}, 1fr)`;
+                
+                // Создание двумерного массива блоков
+                for (let row = 0; row < this.boardSize; row++) {
+                    this.board[row] = [];
+                    for (let col = 0; col < this.boardSize; col++) {
+                        // Генерация случайного цвета
+                        const colorIndex = Math.floor(Math.random() * this.colors.length);
+                        this.board[row][col] = {
+                            color: this.colors[colorIndex],
+                            row,
+                            col,
+                            element: null
+                        };
+                    }
+                }
+                
+                // Проверяем, есть ли возможные ходы
+                while (!this.hasPossibleMatches()) {
+                    this.shuffleBoard();
+                }
+            }
+            
+            // Создание визуального представления поля
+            createBoard() {
+                for (let row = 0; row < this.boardSize; row++) {
+                    for (let col = 0; col < this.boardSize; col++) {
+                        const block = this.board[row][col];
+                        const blockElement = document.createElement('div');
+                        blockElement.className = 'block';
+                        blockElement.style.backgroundColor = block.color;
+                        
+                        // Сохраняем ссылку на DOM-элемент
+                        block.element = blockElement;
+                        
+                        // Добавляем обработчик клика
+                        blockElement.addEventListener('click', () => this.handleBlockClick(row, col));
+                        
+                        // Добавляем блок на игровое поле
+                        this.gameBoard.appendChild(blockElement);
+                    }
+                }
+                
+                // Устанавливаем размеры блоков
+                this.resizeBlocks();
+            }
+            
+            // Обработка клика по блоку
+            handleBlockClick(row, col) {
+                // Если идет анимация или нет ходов, игнорируем клики
+                if (this.isProcessing || this.moves <= 0) return;
+                
+                const clickedBlock = this.board[row][col];
+                
+                // Если это первый выбранный блок или блок с тем же цветом
+                if (this.selectedBlocks.length === 0 || 
+                    (clickedBlock.color === this.selectedBlocks[0].color && !this.isBlockSelected(row, col))) {
+                    
+                    // Добавляем блок в выбранные
+                    this.selectBlock(row, col);
+                    
+                    // Если это уже не первый блок, проверяем, соседние ли они
+                    if (this.selectedBlocks.length > 1) {
+                        const lastSelected = this.selectedBlocks[this.selectedBlocks.length - 1];
+                        const previousSelected = this.selectedBlocks[this.selectedBlocks.length - 2];
+                        
+                        // Если блоки не соседние, отменяем выбор
+                        if (!this.areBlocksAdjacent(lastSelected, previousSelected)) {
+                            clickedBlock.element.classList.remove('selected');
+                            this.selectedBlocks.pop();
+                        }
+                    }
+                } 
+                // Если кликнули на последний выбранный блок, убираем его выбор
+                else if (this.selectedBlocks.length > 0 && 
+                         row === this.selectedBlocks[this.selectedBlocks.length - 1].row && 
+                         col === this.selectedBlocks[this.selectedBlocks.length - 1].col) {
+                    
+                    this.deselectLastBlock();
+                }
+                // Если кликнули на блок другого цвета, сбрасываем выбор и выбираем новый
+                else if (clickedBlock.color !== this.selectedBlocks[0].color) {
+                    this.clearSelection();
+                    this.selectBlock(row, col);
+                }
+                
+                // Если выбрано 3 или более блоков одного цвета, удаляем их
+                if (this.selectedBlocks.length >= 3) {
+                    this.isProcessing = true;
+                    
+                    // Небольшая задержка для видимости выбора
+                    setTimeout(() => {
+                        this.removeSelectedBlocks();
+                        this.moves--;
+                        this.updateMoves();
+                        
+                        // Проверяем окончание игры
+                        this.checkGameStatus();
+                        
+                        this.isProcessing = false;
+                    }, 300);
+                }
+            }
+            
+            // Проверка, выбран ли блок
+            isBlockSelected(row, col) {
+                return this.selectedBlocks.some(block => block.row === row && block.col === col);
+            }
+            
+            // Выбор блока
+            selectBlock(row, col) {
+                const block = this.board[row][col];
+                block.element.classList.add('selected');
+                this.selectedBlocks.push(block);
+            }
+            
+            // Отмена выбора последнего блока
+            deselectLastBlock() {
+                const lastBlock = this.selectedBlocks.pop();
+                lastBlock.element.classList.remove('selected');
+            }
+            
+            // Очистка выбора
+            clearSelection() {
+                this.selectedBlocks.forEach(block => {
+                    block.element.classList.remove('selected');
+                });
+                this.selectedBlocks = [];
+            }
+            
+            // Проверка, являются ли блоки соседними
+            areBlocksAdjacent(block1, block2) {
+                const rowDiff = Math.abs(block1.row - block2.row);
+                const colDiff = Math.abs(block1.col - block2.col);
+                
+                // Блоки соседние, если разница в координатах не больше 1
+                // и только по одной оси
+                return (rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1);
+            }
+            
+            // Удаление выбранных блоков
+            removeSelectedBlocks() {
+                // Подсветка выбранных блоков
+                this.selectedBlocks.forEach(block => {
+                    block.element.classList.add('matched');
+                });
+                
+                // Начисление очков
+                const blocksCount = this.selectedBlocks.length;
+                const comboBonus = Math.pow(this.comboMultiplier, blocksCount - 3);
+                const pointsEarned = Math.floor(blocksCount * this.baseScore * comboBonus);
+                this.score += pointsEarned;
+                this.updateScore();
+                
+                // Удаление блоков и заполнение пустот
+                setTimeout(() => {
+                    // Создаем массив координат удаляемых блоков
+                    const removedPositions = this.selectedBlocks.map(block => ({
+                        row: block.row,
+                        col: block.col
+                    }));
+                    
+                    // Удаляем элементы DOM
+                    this.selectedBlocks.forEach(block => {
+                        this.gameBoard.removeChild(block.element);
+                    });
+                    
+                    // Очищаем массив выбранных блоков
+                    this.selectedBlocks = [];
+                    
+                    // Перемещаем блоки вниз и создаем новые сверху
+                    this.collapseBoard(removedPositions);
+                    
+                    // Проверяем, есть ли возможные ходы
+                    if (!this.hasPossibleMatches()) {
+                        this.shuffleBoard();
+                    }
+                }, 300);
+            }
+            
+            // Перемещение блоков вниз после удаления
+            collapseBoard(removedPositions) {
+                // Сортируем позиции по строкам снизу вверх
+                removedPositions.sort((a, b) => b.row - a.row);
+                
+                // Обрабатываем каждый столбец
+                for (let col = 0; col < this.boardSize; col++) {
+                    // Получаем удаленные позиции в текущем столбце
+                    const removedInColumn = removedPositions.filter(pos => pos.col === col);
+                    
+                    if (removedInColumn.length === 0) continue;
+                    
+                    // Сдвигаем блоки вниз
+                    let emptySlots = 0;
+                    for (let row = this.boardSize - 1; row >= 0; row--) {
+                        // Проверяем, удален ли блок на этой позиции
+                        const isRemoved = removedInColumn.some(pos => pos.row === row);
+                        
+                        if (isRemoved) {
+                            emptySlots++;
+                        } else if (emptySlots > 0) {
+                            // Перемещаем блок вниз
+                            const targetRow = row + emptySlots;
+                            this.board[targetRow][col] = this.board[row][col];
+                            this.board[targetRow][col].row = targetRow;
+                        }
+                    }
+                    
+                    // Создаем новые блоки сверху
+                    for (let row = 0; row < emptySlots; row++) {
+                        const colorIndex = Math.floor(Math.random() * this.colors.length);
+                        const newBlock = {
+                            color: this.colors[colorIndex],
+                            row: row,
+                            col: col,
+                            element: null
+                        };
+                        
+                        const blockElement = document.createElement('div');
+                        blockElement.className = 'block';
+                        blockElement.style.backgroundColor = newBlock.color;
+                        blockElement.addEventListener('click', () => this.handleBlockClick(row, col));
+                        
+                        newBlock.element = blockElement;
+                        this.board[row][col] = newBlock;
+                        this.gameBoard.appendChild(blockElement);
+                    }
+                }
+                
+                // Обновляем отображение
+                this.updateBoardDisplay();
+            }
+            
+            // Обновление отображения поля
+            updateBoardDisplay() {
+                for (let row = 0; row < this.boardSize; row++) {
+                    for (let col = 0; col < this.boardSize; col++) {
+                        const block = this.board[row][col];
+                        const element = block.element;
+                        
+                        // Обновляем цвет блока
+                        element.style.backgroundColor = block.color;
+                    }
+                }
+                
+                // Устанавливаем размеры блоков
+                this.resizeBlocks();
+            }
+            
+            // Установка размеров блоков
+            resizeBlocks() {
+                const blockSize = this.gameBoard.clientWidth / this.boardSize - 4;
+                const blocks = document.querySelectorAll('.block');
+                
+                blocks.forEach(block => {
+                    block.style.width = `${blockSize}px`;
+                    block.style.height = `${blockSize}px`;
+                });
+            }
+            
+            // Обновление счета
+            updateScore() {
+                this.scoreElement.textContent = this.score;
+            }
+            
+            // Обновление количества ходов
+            updateMoves() {
+                this.movesElement.textContent = this.moves;
+            }
+            
+            // Обновление уровня
+            updateLevel() {
+                this.levelElement.textContent = this.level;
+                this.newLevelElement.textContent = this.level;
+            }
+            
+            // Проверка состояния игры
+            checkGameStatus() {
+                // Если ходы закончились
+                if (this.moves <= 0) {
+                    // Цель уровня - набрать определенное количество очков
+                    const targetScore = this.level * 1000;
+                    
+                    if (this.score >= targetScore) {
+                        // Переход на следующий уровень
+                        this.level++;
+                        this.updateLevel();
+                        this.finalScoreElement.textContent = this.score;
+                        this.showModal(this.levelUpModal);
+                    } else {
+                        // Конец игры
+                        this.finalScoreElement.textContent = this.score;
+                        this.showModal(this.gameOverModal);
+                    }
+                }
+            }
+            
+            // Показать модальное окно
+            showModal(modal) {
+                modal.classList.add('active');
+            }
+            
+            // Скрыть модальное окно
+            hideModal(modal) {
+                modal.classList.remove('active');
+            }
+            
+            // Сброс игры
+            resetGame() {
+                this.moves = this.maxMoves;
+                this.clearSelection();
+                this.setUpBoard();
+                this.createBoard();
+                this.updateMoves();
+            }
+            
+            // Показать подсказку
+            showHint() {
+                if (this.isProcessing || this.moves <= 0) return;
+                
+                // Находим блоки, которые могут быть объединены
+                const match = this.findPossibleMatch();
+                
+                if (match.length >= 3) {
+                    // Подсвечиваем найденные блоки
+                    match.forEach(block => {
+                        block.element.classList.add('matched');
+                        
+                        // Убираем подсветку через 1 секунду
+                        setTimeout(() => {
+                            block.element.classList.remove('matched');
+                        }, 1000);
+                    });
+                }
+            }
+            
+            // Поиск возможного хода
+            findPossibleMatch() {
+                // Проверяем все блоки на поле
+                for (let row = 0; row < this.boardSize; row++) {
+                    for (let col = 0; col < this.boardSize; col++) {
+                        const match = this.findConnectedBlocks(row, col, []);
+                        if (match.length >= 3) {
+                            return match;
+                        }
+                    }
+                }
+                
+                return [];
+            }
+            
+            // Поиск соединенных блоков одного цвета
+            findConnectedBlocks(row, col, visited) {
+                if (row < 0 || row >= this.boardSize || col < 0 || col >= this.boardSize) {
+                    return [];
+                }
+                
+                // Проверяем, был ли блок уже посещен
+                if (visited.some(v => v.row === row && v.col === col)) {
+                    return [];
+                }
+                
+                const block = this.board[row][col];
+                const color = block.color;
+                
+                // Добавляем текущий блок в список посещенных
+                visited.push({ row, col });
+                
+                // Проверяем соседние блоки
+                const neighbors = [
+                    { row: row - 1, col: col }, // верх
+                    { row: row + 1, col: col }, // низ
+                    { row: row, col: col - 1 }, // лево
+                    { row: row, col: col + 1 }  // право
+                ];
+                
+                let connectedBlocks = [block];
+                
+                for (const neighbor of neighbors) {
+                    if (neighbor.row >= 0 && neighbor.row < this.boardSize && 
+                        neighbor.col >= 0 && neighbor.col < this.boardSize) {
+                        
+                        const neighborBlock = this.board[neighbor.row][neighbor.col];
+                        
+                        if (neighborBlock.color === color) {
+                            const connected = this.findConnectedBlocks(neighbor.row, neighbor.col, [...visited]);
+                            connectedBlocks = [...connectedBlocks, ...connected];
+                        }
+                    }
+                }
+                
+                // Удаляем дубликаты
+                return connectedBlocks.filter((block, index, self) => 
+                    index === self.findIndex(b => b.row === block.row && b.col === block.col)
+                );
+            }
+            
+            // Проверка наличия возможных ходов
+            hasPossibleMatches() {
+                return this.findPossibleMatch().length >= 3;
+            }
+            
+            // Перемешивание доски
+            shuffleBoard() {
+                // Собираем все цвета
+                const allColors = [];
+                for (let row = 0; row < this.boardSize; row++) {
+                    for (let col = 0; col < this.boardSize; col++) {
+                        allColors.push(this.board[row][col].color);
+                    }
+                }
+                
+                // Перемешиваем цвета
+                for (let i = allColors.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [allColors[i], allColors[j]] = [allColors[j], allColors[i]];
+                }
+                
+                // Распределяем перемешанные цвета
+                let colorIndex = 0;
+                for (let row = 0; row < this.boardSize; row++) {
+                    for (let col = 0; col < this.boardSize; col++) {
+                        this.board[row][col].color = allColors[colorIndex++];
+                    }
+                }
+                
+                // Обновляем отображение
+                this.updateBoardDisplay();
+            }
+        }
+        
+        // Запуск игры после загрузки страницы
+        document.addEventListener('DOMContentLoaded', () => {
+            const game = new BlockBlastGame();
+        });
+    </script>
+</body>
+</html>
