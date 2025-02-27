@@ -1,0 +1,160 @@
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: linear-gradient(135deg, #4169E1, #3c55b0);
+    font-family: Arial, sans-serif;
+    margin: 0;
+    color: white;
+}
+
+.game-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #4169E1;
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    width: 90%;
+    max-width: 450px;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.crown-score {
+    display: flex;
+    align-items: center;
+}
+
+.crown {
+    font-size: 24px;
+    margin-right: 5px;
+}
+
+.high-score {
+    font-size: 24px;
+    font-weight: bold;
+    color: #FFD700;
+}
+
+.score {
+    font-size: 36px;
+    font-weight: bold;
+    color: white;
+    text-align: center;
+}
+
+.settings {
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    grid-template-rows: repeat(10, 1fr);
+    gap: 2px;
+    background: #24387f;
+    padding: 5px;
+    border-radius: 10px;
+    aspect-ratio: 1 / 1;
+    width: 100%;
+    max-width: 400px;
+}
+
+.cell {
+    aspect-ratio: 1 / 1;
+    background: #2a3c7e;
+    border-radius: 2px;
+    transition: 0.2s;
+    position: relative;
+}
+
+.cell.highlight {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.cell.highlight::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border: 2px solid white;
+    box-sizing: border-box;
+    border-radius: 2px;
+    z-index: 2;
+}
+
+.cell.filled {
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-sizing: border-box;
+}
+
+.blocks-area {
+    width: 100%;
+    padding: 20px 0;
+    display: flex;
+    justify-content: center;
+}
+
+.blocks {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 10px;
+    width: 100%;
+    max-width: 400px;
+}
+
+.block {
+    position: relative;
+    padding: 5px;
+    border-radius: 5px;
+    cursor: grab;
+    transition: transform 0.2s;
+    background: transparent;
+    margin: 0 5px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.block:active {
+    cursor: grabbing;
+    transform: scale(1.05);
+}
+
+.block.dragging {
+    opacity: 0.7;
+}
+
+.block-cell {
+    position: absolute;
+    border-radius: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-sizing: border-box;
+    transition: 0.2s;
+    /* Эффект объемности */
+    box-shadow: 
+        inset 2px 2px 2px rgba(255, 255, 255, 0.5),
+        inset -2px -2px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Стили для подсказки размещения */
+.placement-preview {
+    position: absolute;
+    background-color: rgba(255, 255, 255, 0.3);
+    border: 2px solid white;
+    border-radius: 2px;
+    pointer-events: none;
+    z-index: 10;
+}
