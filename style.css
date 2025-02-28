@@ -7,6 +7,8 @@ body {
     font-family: Arial, sans-serif;
     margin: 0;
     color: white;
+    overflow: hidden; /* Предотвращаем прокрутку страницы на мобильных устройствах */
+    touch-action: none; /* Улучшаем обработку касаний на мобильных устройствах */
 }
 
 .game-container {
