@@ -123,41 +123,43 @@ body {
     padding: 5px;
     border-radius: 5px;
     cursor: grab;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: transform 0.15s ease-out;
     background: transparent;
     margin: 0 5px;
     display: flex;
     justify-content: center;
     align-items: center;
-    /* Делаем блок заметно крупнее при активации на мобильных */
-    touch-action: none;
+    z-index: 10;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    touch-action: none; /* Убирает стандартное поведение касания для улучшения перетаскивания */
 }
 
 .drag-handle {
-    z-index: 10;
-    /* Визуальный эффект при активных состояниях */
-    transition: background-color 0.2s;
-    border-radius: 5px;
+    touch-action: none;
+    z-index: 5;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
-.drag-handle:active {
+.drag-handle:hover {
     background-color: rgba(255, 255, 255, 0.1);
 }
 
-.block:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+.drag-handle:active {
+    background-color: rgba(255, 255, 255, 0.2);
+    cursor: grabbing;
 }
 
-.block:active, .block.dragging {
-    cursor: grabbing;
-    transform: scale(1.05);
-    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.3);
+.block:hover,
+.block:focus-within {
+    z-index: 20;
+    transform: scale(1.03);
 }
 
 .block.dragging {
-    opacity: 0.8;
-    z-index: 100;
+    z-index: 30;
+    opacity: 0.9;
+    filter: brightness(1.1);
 }
 
 .block-cell {
@@ -193,5 +195,87 @@ body {
     border: 2px solid white;
     border-radius: 2px;
     pointer-events: none;
-    z-index: 10;
+    z-index: 20;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+}
+
+/* Индикатор информации о размещении */
+.placement-info {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    font-family: Arial, sans-serif;
+    letter-spacing: 0.5px;
+}
+
+/* Индикатор захвата для мобильных устройств */
+.grab-indicator {
+    opacity: 0.7;
+    transition: opacity 0.2s, transform 0.2s;
+    pointer-events: none;
+}
+
+.block:hover .grab-indicator,
+.block:active .grab-indicator {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.1);
+}
+
+.block.dragging .grab-indicator {
+    opacity: 0;
+}
+
+/* Скрываем индикатор на больших экранах */
+@media (min-width: 1024px) {
+    .grab-indicator {
+        display: none !important;
+    }
+}
+
+/* Специальные настройки для мобильных устройств */
+@media (max-width: 768px) {
+    .block {
+        margin-bottom: 15px;
+    }
+    
+    .blocks {
+        padding: 15px;
+    }
+    
+    /* Увеличиваем размер кликабельной области */
+    .drag-handle::before {
+        content: '';
+        position: absolute;
+        top: -5px;
+        left: -5px;
+        right: -5px;
+        bottom: -5px;
+        z-index: 1;
+    }
+    
+    /* Улучшенные стили для предварительного просмотра размещения на мобильных */
+    .placement-preview {
+        border: 3px solid rgba(255, 255, 255, 0.8);
+        box-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
+    }
+    
+    /* Дополнительные эффекты для привлечения внимания */
+    .placement-info {
+        font-size: 14px !important;
+        padding: 4px 10px !important;
+    }
+    
+    /* Улучшаем контраст и видимость сетки */
+    .grid {
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+    }
+    
+    .cell {
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    /* Увеличиваем размер элементов управления */
+    button {
+        min-height: 44px;
+        padding: 12px 20px;
+    }
 }

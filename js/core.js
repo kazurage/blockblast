@@ -44,14 +44,20 @@ const GameCore = (() => {
     let score = 0;
     let highScore = 0;
     let gridCells = [];
-    let blockShapes = [];
+    let blockShapes = {};
+    let gameOver = false;
+    
+    // Функция для глубокого клонирования массивов
+    function deepClone(arr) {
+        return JSON.parse(JSON.stringify(arr));
+    }
     
     function calculateCellSize(grid) {
         const gridComputedStyle = window.getComputedStyle(grid);
         const gridWidth = parseInt(gridComputedStyle.width) - 
                          parseInt(gridComputedStyle.paddingLeft) - 
                          parseInt(gridComputedStyle.paddingRight);
-        return gridWidth / 10;
+        return Math.floor(gridWidth / 10);
     }
     
     function createGrid(grid, isTouchDevice, handlers) {
@@ -115,13 +121,14 @@ const GameCore = (() => {
     
     function generateBlockShape() {
         const selectedIndex = weightedRandom();
-        return blockTemplates[selectedIndex];
+        // Создаем глубокую копию шаблона, чтобы избежать проблем с общей ссылкой
+        return deepClone(blockTemplates[selectedIndex]);
     }
     
     function generateBlockColor() {
         // Исключаем использование того же цвета дважды подряд
         let availableColors = [...colors];
-        const lastColors = blockShapes.map(block => block.color);
+        const lastColors = Object.values(blockShapes).map(block => block.color);
         
         if (lastColors.length > 0) {
             availableColors = availableColors.filter(color => !lastColors.includes(color));
@@ -136,6 +143,8 @@ const GameCore = (() => {
     }
     
     function checkPlacement(row, col, shape) {
+        if (!shape || shape.length === 0) return false;
+        
         const gridWidth = 10;
         
         // Быстрая проверка границ в целом перед перебором ячеек
@@ -149,6 +158,7 @@ const GameCore = (() => {
         // Найдем максимальную ширину блока
         let maxWidth = 0;
         for (let i = 0; i < rows; i++) {
+            if (!shape[i]) continue; // Защита от undefined
             maxWidth = Math.max(maxWidth, shape[i].length);
         }
         
@@ -159,15 +169,22 @@ const GameCore = (() => {
         
         // Теперь проверяем каждую ячейку
         for (let i = 0; i < rows; i++) {
+            if (!shape[i]) continue; // Защита от undefined
+            
             const rowWidth = shape[i].length;
             for (let j = 0; j < rowWidth; j++) {
                 if (shape[i][j]) {
                     const newRow = row + i;
                     const newCol = col + j;
                     
+                    // Дополнительная проверка границ
+                    if (newRow < 0 || newRow >= 10 || newCol < 0 || newCol >= 10) {
+                        return false;
+                    }
+                    
                     const targetIndex = newRow * gridWidth + newCol;
-                    // Ячейка уже проверена по общим границам выше
-                    if (gridCells[targetIndex].classList.contains('filled')) {
+                    // Проверка существования ячейки и заполненности
+                    if (!gridCells[targetIndex] || gridCells[targetIndex].classList.contains('filled')) {
                         return false;
                     }
                 }
@@ -177,7 +194,9 @@ const GameCore = (() => {
         return true;
     }
     
-    function placeBlock(row, col, shape, color) {
+    function placeBlock(row, col, shape, color, onLinesClear) {
+        if (!shape || shape.length === 0) return false;
+        
         const gridWidth = 10;
         const rows = shape.length;
         
@@ -186,179 +205,291 @@ const GameCore = (() => {
         const cellsToUpdate = [];
         
         for (let i = 0; i < rows; i++) {
+            if (!shape[i]) continue; // Защита от undefined
+            
             const rowWidth = shape[i].length;
             for (let j = 0; j < rowWidth; j++) {
                 if (shape[i][j]) {
                     const newRow = row + i;
                     const newCol = col + j;
                     
+                    // Дополнительная проверка границ
+                    if (newRow < 0 || newRow >= 10 || newCol < 0 || newCol >= 10) {
+                        continue;
+                    }
+                    
                     const targetIndex = newRow * gridWidth + newCol;
                     const targetCell = gridCells[targetIndex];
                     
-                    cellsToUpdate.push({ cell: targetCell, color });
+                    if (targetCell) {
+                        cellsToUpdate.push({ cell: targetCell, color });
+                    }
                 }
             }
         }
         
-        // Группируем обновления для улучшения производительности
-        requestAnimationFrame(() => {
-            cellsToUpdate.forEach(item => {
-                item.cell.classList.add('filled');
-                item.cell.style.backgroundColor = item.color;
-            });
+        // Если нет ячеек для обновления, возвращаем false
+        if (cellsToUpdate.length === 0) {
+            return false;
+        }
+        
+        // Немедленно обновляем ячейки для устранения задержки
+        cellsToUpdate.forEach(item => {
+            item.cell.classList.add('filled');
+            item.cell.style.backgroundColor = item.color;
         });
+        
+        // Немедленно проверяем линии
+        setTimeout(() => {
+            checkLines(onLinesClear);
+        }, 10);
+        
+        return true;
     }
     
     function checkLines(onLinesClear) {
         const gridWidth = 10;
+        const gridHeight = 10;
         let linesToClear = [];
         let totalLinesCleared = 0;
         
-        for (let row = 0; row < 10; row++) {
-            let isRowFilled = true;
-            for (let col = 0; col < 10; col++) {
+        // Создаем массив заполненных ячеек для быстрого доступа
+        const filledCellsMap = Array(gridHeight).fill().map(() => Array(gridWidth).fill(false));
+        
+        // Заполняем карту ячеек
+        for (let row = 0; row < gridHeight; row++) {
+            for (let col = 0; col < gridWidth; col++) {
                 const cellIndex = row * gridWidth + col;
-                if (!gridCells[cellIndex].classList.contains('filled')) {
+                filledCellsMap[row][col] = gridCells[cellIndex] && gridCells[cellIndex].classList.contains('filled');
+            }
+        }
+        
+        // Проверка строк
+        for (let row = 0; row < gridHeight; row++) {
+            let isRowFilled = true;
+            for (let col = 0; col < gridWidth; col++) {
+                if (!filledCellsMap[row][col]) {
                     isRowFilled = false;
                     break;
                 }
             }
             
             if (isRowFilled) {
-                for (let col = 0; col < 10; col++) {
-                    linesToClear.push(row * gridWidth + col);
-                }
                 totalLinesCleared++;
+                // Добавляем все ячейки из заполненной строки в список для очистки
+                for (let col = 0; col < gridWidth; col++) {
+                    const cellIndex = row * gridWidth + col;
+                    if (!linesToClear.includes(cellIndex)) {
+                        linesToClear.push(cellIndex);
+                    }
+                }
             }
         }
         
-        for (let col = 0; col < 10; col++) {
+        // Проверка столбцов
+        for (let col = 0; col < gridWidth; col++) {
             let isColFilled = true;
-            for (let row = 0; row < 10; row++) {
-                const cellIndex = row * gridWidth + col;
-                if (!gridCells[cellIndex].classList.contains('filled')) {
+            for (let row = 0; row < gridHeight; row++) {
+                if (!filledCellsMap[row][col]) {
                     isColFilled = false;
                     break;
                 }
             }
             
             if (isColFilled) {
-                for (let row = 0; row < 10; row++) {
+                totalLinesCleared++;
+                // Добавляем все ячейки из заполненного столбца в список для очистки
+                for (let row = 0; row < gridHeight; row++) {
                     const cellIndex = row * gridWidth + col;
                     if (!linesToClear.includes(cellIndex)) {
                         linesToClear.push(cellIndex);
                     }
                 }
-                totalLinesCleared++;
             }
         }
         
+        // Если нашли линии для очистки
         if (linesToClear.length > 0) {
+            // Начисляем очки с бонусом за несколько линий
             const points = totalLinesCleared * 100 * totalLinesCleared;
             score += points;
             highScore = Math.max(highScore, score);
             
+            // Группируем ячейки по строкам и столбцам для визуальных эффектов
+            const groupedCells = {};
             linesToClear.forEach(index => {
-                const cell = gridCells[index];
-                cell.style.transition = 'all 0.3s';
-                cell.style.transform = 'scale(0.1)';
-                cell.style.opacity = '0';
+                groupedCells[index] = {
+                    row: Math.floor(index / gridWidth),
+                    col: index % gridWidth,
+                    element: gridCells[index]
+                };
             });
             
-            setTimeout(() => {
-                requestAnimationFrame(() => {
-                    linesToClear.forEach(index => {
+            // Создаем последовательность анимаций
+            const animateCells = () => {
+                // Этап 1: Подсветка линий
+                linesToClear.forEach(index => {
+                    if (gridCells[index]) {
                         const cell = gridCells[index];
-                        cell.classList.remove('filled');
-                        cell.style.backgroundColor = '';
-                        cell.style.transform = '';
-                        cell.style.opacity = '';
-                        cell.style.transition = '';
-                    });
+                        cell.style.transition = 'all 0.15s ease-in-out';
+                        cell.style.backgroundColor = '#FFD700'; // Золотой цвет
+                        cell.style.boxShadow = '0 0 8px #FFD700';
+                        cell.style.zIndex = '2';
+                    }
                 });
                 
-                onLinesClear(points);
-            }, 300);
-        }
-    }
-    
-    function canPlaceAnyBlock(shapes) {
-        // Кэшируем информацию о занятых ячейках для ускорения проверки
-        const filledCells = new Set();
-        gridCells.forEach((cell, index) => {
-            if (cell.classList.contains('filled')) {
-                filledCells.add(index);
-            }
-        });
-        
-        // Проверяем только по периметру заполненных ячеек
-        // и пустым ячейкам рядом с ними, вместо всей сетки
-        const gridWidth = 10;
-        const cellsToCheck = new Set();
-        
-        // Если сетка пуста, проверяем только центр
-        if (filledCells.size === 0) {
-            // Проверяем только центральную область для пустой сетки
-            for (let row = 3; row < 7; row++) {
-                for (let col = 3; col < 7; col++) {
-                    cellsToCheck.add(row * gridWidth + col);
-                }
-            }
-        } else {
-            // Исследуем периметр заполненных клеток
-            filledCells.forEach(index => {
-                const row = Math.floor(index / gridWidth);
-                const col = index % gridWidth;
-                
-                // Добавляем соседние ячейки
-                for (let r = Math.max(0, row - 1); r <= Math.min(9, row + 1); r++) {
-                    for (let c = Math.max(0, col - 1); c <= Math.min(9, col + 1); c++) {
-                        const neighborIndex = r * gridWidth + c;
-                        if (!filledCells.has(neighborIndex)) {
-                            cellsToCheck.add(neighborIndex);
+                // Этап 2: Анимация исчезновения
+                setTimeout(() => {
+                    linesToClear.forEach(index => {
+                        if (gridCells[index]) {
+                            const cell = gridCells[index];
+                            cell.style.transition = 'all 0.3s ease-out';
+                            cell.style.transform = 'scale(0.1)';
+                            cell.style.opacity = '0';
                         }
-                    }
-                }
-            });
-        }
-        
-        // Проверяем возможность размещения для каждого блока
-        for (let blockId in shapes) {
-            const shape = shapes[blockId].shape;
-            
-            for (let cellIndex of cellsToCheck) {
-                const row = Math.floor(cellIndex / gridWidth);
-                const col = cellIndex % gridWidth;
-                
-                if (checkPlacement(row, col, shape)) {
-                    return true;
-                }
-            }
-        }
-        
-        // Если нужно, проверяем все остальные ячейки (более редкий сценарий)
-        if (cellsToCheck.size < 50) {
-            for (let row = 0; row < 10; row++) {
-                for (let col = 0; col < 10; col++) {
-                    const index = row * gridWidth + col;
+                    });
                     
-                    if (!cellsToCheck.has(index) && !filledCells.has(index)) {
-                        for (let blockId in shapes) {
-                            const shape = shapes[blockId].shape;
-                            if (checkPlacement(row, col, shape)) {
-                                return true;
+                    // Этап 3: Завершение и очистка
+                    setTimeout(() => {
+                        linesToClear.forEach(index => {
+                            if (gridCells[index]) {
+                                const cell = gridCells[index];
+                                cell.classList.remove('filled');
+                                cell.style.backgroundColor = '';
+                                cell.style.transform = '';
+                                cell.style.opacity = '';
+                                cell.style.transition = '';
+                                cell.style.boxShadow = '';
+                                cell.style.zIndex = '';
                             }
+                        });
+                        
+                        // Вызываем колбэк для обновления счета
+                        if (typeof onLinesClear === 'function') {
+                            onLinesClear(points);
                         }
-                    }
-                }
-            }
+                    }, 300);
+                }, 150);
+            };
+            
+            // Запускаем анимации
+            requestAnimationFrame(animateCells);
+            
+            return true;
         }
         
         return false;
     }
     
+    function canPlaceAnyBlock(shapes) {
+        // Проверяем, есть ли вообще блоки для размещения
+        if (!shapes || Object.keys(shapes).length === 0) {
+            return false;
+        }
+        
+        // Проверка, существуют ли формы блоков
+        let hasValidBlocks = false;
+        for (let blockId in shapes) {
+            if (shapes[blockId] && shapes[blockId].shape && shapes[blockId].shape.length > 0) {
+                hasValidBlocks = true;
+                break;
+            }
+        }
+        
+        if (!hasValidBlocks) {
+            return false;
+        }
+        
+        // Кэшируем информацию о занятых ячейках для ускорения проверки
+        const gridWidth = 10;
+        const gridHeight = 10;
+        
+        // Создаем матрицу состояния сетки для более точной проверки
+        const grid = Array(gridHeight).fill().map(() => Array(gridWidth).fill(false));
+        
+        // Заполняем матрицу состояния занятыми ячейками
+        for (let row = 0; row < gridHeight; row++) {
+            for (let col = 0; col < gridWidth; col++) {
+                const index = row * gridWidth + col;
+                if (gridCells[index] && gridCells[index].classList.contains('filled')) {
+                    grid[row][col] = true;
+                }
+            }
+        }
+        
+        // Проверяем каждую возможную позицию для каждого блока
+        for (let row = 0; row < gridHeight; row++) {
+            for (let col = 0; col < gridWidth; col++) {
+                for (let blockId in shapes) {
+                    if (!shapes[blockId] || !shapes[blockId].shape) continue;
+                    
+                    const shape = shapes[blockId].shape;
+                    if (checkPlacementFast(row, col, shape, grid)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        
+        // Если дошли до этой точки, ни один блок не может быть размещен
+        return false;
+    }
+    
+    // Оптимизированная версия checkPlacement для быстрой проверки окончания игры
+    function checkPlacementFast(row, col, shape, grid) {
+        if (!shape || shape.length === 0) return false;
+        
+        const rows = shape.length;
+        const lastRowIndex = row + rows - 1;
+        
+        if (lastRowIndex >= 10 || row < 0) {
+            return false;
+        }
+        
+        // Найдем максимальную ширину блока
+        let maxWidth = 0;
+        for (let i = 0; i < rows; i++) {
+            if (!shape[i]) continue;
+            maxWidth = Math.max(maxWidth, shape[i].length);
+        }
+        
+        const lastColIndex = col + maxWidth - 1;
+        if (lastColIndex >= 10 || col < 0) {
+            return false;
+        }
+        
+        // Теперь проверяем каждую ячейку
+        for (let i = 0; i < rows; i++) {
+            if (!shape[i]) continue;
+            
+            const rowWidth = shape[i].length;
+            for (let j = 0; j < rowWidth; j++) {
+                if (shape[i][j]) {
+                    const newRow = row + i;
+                    const newCol = col + j;
+                    
+                    // Проверка границ и занятости ячеек
+                    if (newRow < 0 || newRow >= 10 || newCol < 0 || newCol >= 10 || grid[newRow][newCol]) {
+                        return false;
+                    }
+                }
+            }
+        }
+        
+        return true;
+    }
+    
+    function isGameOver() {
+        return gameOver;
+    }
+    
+    function setGameOver(value) {
+        gameOver = value;
+    }
+    
     function resetScore() {
         score = 0;
+        gameOver = false;
     }
     
     function setCellSize(size) {
@@ -366,7 +497,7 @@ const GameCore = (() => {
     }
     
     function setBlockShapes(shapes) {
-        blockShapes = shapes;
+        blockShapes = shapes || {};
     }
     
     function getScore() {
@@ -375,6 +506,37 @@ const GameCore = (() => {
     
     function getHighScore() {
         return highScore;
+    }
+    
+    // Отладочная функция для проверки блока
+    function validateBlock(blockId, shapes) {
+        if (!shapes || !shapes[blockId] || !shapes[blockId].shape) {
+            console.error('Некорректный блок:', blockId, shapes ? shapes[blockId] : 'shapes не определено');
+            return false;
+        }
+        return true;
+    }
+    
+    // Добавляем новую функцию для диагностики состояния сетки
+    function diagnosticGridState() {
+        const gridWidth = 10;
+        const gridHeight = 10;
+        let filledCount = 0;
+        
+        for (let row = 0; row < gridHeight; row++) {
+            for (let col = 0; col < gridWidth; col++) {
+                const index = row * gridWidth + col;
+                if (gridCells[index] && gridCells[index].classList.contains('filled')) {
+                    filledCount++;
+                }
+            }
+        }
+        
+        return {
+            total: gridWidth * gridHeight,
+            filled: filledCount,
+            empty: gridWidth * gridHeight - filledCount
+        };
     }
     
     return {
@@ -386,10 +548,15 @@ const GameCore = (() => {
         placeBlock,
         checkLines,
         canPlaceAnyBlock,
+        isGameOver,
+        setGameOver,
         resetScore,
         setCellSize,
         setBlockShapes,
         getScore,
-        getHighScore
+        getHighScore,
+        validateBlock,
+        deepClone,
+        diagnosticGridState
     };
 })();
