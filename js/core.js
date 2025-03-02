@@ -384,6 +384,7 @@ const GameCore = (() => {
     function canPlaceAnyBlock(shapes) {
         // Проверяем, есть ли вообще блоки для размещения
         if (!shapes || Object.keys(shapes).length === 0) {
+            console.log("Нет блоков для проверки размещения");
             return false;
         }
         
@@ -397,7 +398,16 @@ const GameCore = (() => {
         }
         
         if (!hasValidBlocks) {
+            console.log("Нет действительных форм блоков");
             return false;
+        }
+        
+        // Если мы в начале игры, всегда возвращаем true для предотвращения преждевременного завершения игры
+        // Эта проверка дополняет проверку в ui.js, но выполняется здесь на всякий случай
+        const filledCount = countFilledCells();
+        if (filledCount < 25) {
+            console.log("Игра только началась (занято менее 25 ячеек), пропускаем проверку");
+            return true;
         }
         
         // Кэшируем информацию о занятых ячейках для ускорения проверки
@@ -425,6 +435,7 @@ const GameCore = (() => {
                     
                     const shape = shapes[blockId].shape;
                     if (checkPlacementFast(row, col, shape, grid)) {
+                        console.log(`Блок ${blockId} может быть размещен на позиции [${row}, ${col}]`);
                         return true;
                     }
                 }
@@ -432,7 +443,26 @@ const GameCore = (() => {
         }
         
         // Если дошли до этой точки, ни один блок не может быть размещен
+        console.log("Ни один блок не может быть размещен");
         return false;
+    }
+    
+    // Вспомогательная функция для подсчета заполненных ячеек
+    function countFilledCells() {
+        let filledCount = 0;
+        const gridWidth = 10;
+        const gridHeight = 10;
+        
+        for (let row = 0; row < gridHeight; row++) {
+            for (let col = 0; col < gridWidth; col++) {
+                const index = row * gridWidth + col;
+                if (gridCells[index] && gridCells[index].classList.contains('filled')) {
+                    filledCount++;
+                }
+            }
+        }
+        
+        return filledCount;
     }
     
     // Оптимизированная версия checkPlacement для быстрой проверки окончания игры
@@ -557,6 +587,7 @@ const GameCore = (() => {
         getHighScore,
         validateBlock,
         deepClone,
-        diagnosticGridState
+        diagnosticGridState,
+        countFilledCells
     };
 })();

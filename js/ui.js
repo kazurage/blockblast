@@ -49,6 +49,39 @@ document.addEventListener('DOMContentLoaded', () => {
         GameCore.setCellSize(cellSize);
         updateScore(0);
         updateHighScore();
+        
+        // Добавляем стили анимации для мобильных устройств
+        if (isTouchDevice && !document.getElementById('mobile-animations')) {
+            const styleSheet = document.createElement('style');
+            styleSheet.id = 'mobile-animations';
+            styleSheet.textContent = `
+                @keyframes pulse {
+                    0% { opacity: 0.7; }
+                    50% { opacity: 1; }
+                    100% { opacity: 0.7; }
+                }
+                
+                .grab-indicator {
+                    animation: pulse 1.5s infinite;
+                }
+                
+                .block-cell {
+                    touch-action: none;
+                }
+                
+                .block {
+                    margin: 10px;
+                    transition: transform 0.2s ease;
+                }
+                
+                .block.dragging {
+                    z-index: 1000;
+                    transform: scale(1.1);
+                }
+            `;
+            document.head.appendChild(styleSheet);
+        }
+        
         generateNewBlocks();
         
         setupInputEvents();
@@ -80,6 +113,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleTouchMove(e) {
         if (selectedBlockId === null) return;
         
+        // Предотвращаем прокрутку страницы при перетаскивании
+        e.preventDefault();
+        
         const touch = e.touches[0];
         const gridRect = grid.getBoundingClientRect();
         const mouseX = touch.clientX - gridRect.left;
@@ -87,20 +123,29 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const selectedBlock = document.querySelector(`.block[data-block-id="${selectedBlockId}"]`);
         
-        // Перемещаем блок за пальцем
+        // Перемещаем блок за пальцем с учетом смещения центра для улучшения точности
         if (selectedBlock) {
+            // Используем смещение относительно центра блока для лучшего управления
+            const offsetX = selectedBlock.offsetWidth / 2;
+            const offsetY = selectedBlock.offsetHeight / 2;
+            
             selectedBlock.style.position = 'fixed';
-            selectedBlock.style.left = (touch.clientX - selectedBlock.offsetWidth / 2) + 'px';
-            selectedBlock.style.top = (touch.clientY - selectedBlock.offsetHeight / 2) + 'px';
+            selectedBlock.style.left = (touch.clientX - offsetX) + 'px';
+            selectedBlock.style.top = (touch.clientY - offsetY) + 'px';
             selectedBlock.style.zIndex = '1000';
+            
+            // Добавляем тень для лучшей обратной связи
+            selectedBlock.style.boxShadow = '0 10px 20px rgba(0,0,0,0.3)';
+            selectedBlock.style.transition = 'box-shadow 0.2s';
         }
         
-        // Определяем, находится ли касание над сеткой
+        // Определяем, находится ли касание над сеткой, с дополнительным запасом для лучшего попадания
+        const margin = cellSize / 2; // Добавляем небольшой запас для лучшего определения области
         const isOverGrid = 
-            mouseX >= 0 && 
-            mouseY >= 0 && 
-            mouseX <= gridRect.width && 
-            mouseY <= gridRect.height;
+            mouseX >= -margin && 
+            mouseY >= -margin && 
+            mouseX <= (gridRect.width + margin) && 
+            mouseY <= (gridRect.height + margin);
         
         // Если касание вне сетки, убираем предварительный просмотр
         if (!isOverGrid) {
@@ -108,11 +153,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // Определяем позицию на сетке
+        // Определяем позицию на сетке для размещения
         const col = Math.floor(mouseX / cellSize);
         const row = Math.floor(mouseY / cellSize);
         
-        // Проверяем, поменялась ли позиция с последнего обновления
+        // Проверяем наличие блока в массиве форм
         if (!blockShapes[selectedBlockId]) return;
         
         const shape = blockShapes[selectedBlockId].shape;
@@ -152,9 +197,16 @@ document.addEventListener('DOMContentLoaded', () => {
             blockElement.style.left = '';
             blockElement.style.top = '';
             blockElement.style.zIndex = '';
+            blockElement.style.boxShadow = ''; // Убираем тень
         }
         
-        if (mouseX < 0 || mouseY < 0 || mouseX > gridRect.width || mouseY > gridRect.height) {
+        // Добавляем дополнительную зону попадания вокруг сетки для лучшего UX на мобильных
+        const margin = cellSize; // Увеличиваем зону попадания
+        
+        if (mouseX < -margin || mouseY < -margin || 
+            mouseX > (gridRect.width + margin) || 
+            mouseY > (gridRect.height + margin)) {
+            
             removePlacementPreview();
             if (blockElement) {
                 blockElement.classList.remove('dragging');
@@ -163,8 +215,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        const col = Math.floor(mouseX / cellSize);
-        const row = Math.floor(mouseY / cellSize);
+        // Ограничиваем координаты сетки для правильного попадания
+        const boundedCol = Math.min(Math.max(0, Math.floor(mouseX / cellSize)), 9);
+        const boundedRow = Math.min(Math.max(0, Math.floor(mouseY / cellSize)), 9);
         
         if (!blockShapes[selectedBlockId]) {
             if (blockElement) {
@@ -179,8 +232,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let placementSuccessful = false;
         
-        if (GameCore.checkPlacement(row, col, shape)) {
-            GameCore.placeBlock(row, col, shape, color, updateScore);
+        // Сначала пробуем разместить блок в текущей позиции
+        if (GameCore.checkPlacement(boundedRow, boundedCol, shape)) {
+            GameCore.placeBlock(boundedRow, boundedCol, shape, color, updateScore);
             
             if (blockElement) {
                 blockElement.style.transition = 'transform 0.2s, opacity 0.2s';
@@ -199,8 +253,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 generateNewBlocks();
             } else {
                 // Проверяем окончание игры после размещения блока 
-                // без использования setTimeout
-                checkGameOver();
+                // Используем requestAnimationFrame для задержки проверки
+                requestAnimationFrame(() => {
+                    checkGameOver();
+                });
             }
             
             if (window.navigator.vibrate) {
@@ -209,7 +265,55 @@ document.addEventListener('DOMContentLoaded', () => {
             
             placementSuccessful = true;
         } else {
-            if (blockElement) {
+            // Если не удалось разместить, возможно, нужно скорректировать положение
+            // Попробуем соседние ячейки в радиусе 1 клетки для лучшего UX
+            const offsets = [
+                {row: 0, col: -1}, {row: 0, col: 1}, 
+                {row: -1, col: 0}, {row: 1, col: 0}
+            ];
+            
+            for (const offset of offsets) {
+                const newRow = boundedRow + offset.row;
+                const newCol = boundedCol + offset.col;
+                
+                // Проверяем границы
+                if (newRow < 0 || newRow > 9 || newCol < 0 || newCol > 9) continue;
+                
+                if (GameCore.checkPlacement(newRow, newCol, shape)) {
+                    GameCore.placeBlock(newRow, newCol, shape, color, updateScore);
+                    
+                    if (blockElement) {
+                        blockElement.style.transition = 'transform 0.2s, opacity 0.2s';
+                        blockElement.style.transform = 'scale(0.8)';
+                        blockElement.style.opacity = '0';
+                        
+                        setTimeout(() => {
+                            blockElement.remove();
+                        }, 200);
+                    }
+                    
+                    // Удаляем блок из blockShapes
+                    delete blockShapes[selectedBlockId];
+                    
+                    if (document.querySelectorAll('.block').length === 0) {
+                        generateNewBlocks();
+                    } else {
+                        // Проверяем окончание игры после размещения блока
+                        requestAnimationFrame(() => {
+                            checkGameOver();
+                        });
+                    }
+                    
+                    if (window.navigator.vibrate) {
+                        window.navigator.vibrate([50, 50, 100]);
+                    }
+                    
+                    placementSuccessful = true;
+                    break;
+                }
+            }
+            
+            if (!placementSuccessful && blockElement) {
                 blockElement.style.transition = 'transform 0.3s';
                 blockElement.style.transform = '';
             }
@@ -294,11 +398,16 @@ document.addEventListener('DOMContentLoaded', () => {
         let blockCellSize = cellSize * 0.8;
         let sizeCategory = "medium";
         
+        // Делаем блоки немного крупнее на мобильных устройствах для удобства касания
+        if (isTouchDevice) {
+            blockCellSize = cellSize * 0.85; // Увеличиваем размер для мобильных
+        }
+        
         if (rows * cols <= 2) {
-            blockCellSize = cellSize * 0.9;
+            blockCellSize = cellSize * (isTouchDevice ? 0.95 : 0.9); // Увеличиваем маленькие блоки
             sizeCategory = "small";
         } else if (rows * cols >= 6) {
-            blockCellSize = cellSize * 0.7;
+            blockCellSize = cellSize * (isTouchDevice ? 0.75 : 0.7); // Настраиваем большие блоки
             sizeCategory = "large";
         }
         
@@ -335,29 +444,53 @@ document.addEventListener('DOMContentLoaded', () => {
         dragHandle.style.cursor = 'grab';
         
         if (isTouchDevice) {
+            // Увеличиваем область касания и делаем индикатор более заметным
             const grabIndicator = document.createElement('div');
             grabIndicator.classList.add('grab-indicator');
             grabIndicator.style.position = 'absolute';
             grabIndicator.style.top = '50%';
             grabIndicator.style.left = '50%';
             grabIndicator.style.transform = 'translate(-50%, -50%)';
-            grabIndicator.style.width = '40%';
-            grabIndicator.style.height = '40%';
+            grabIndicator.style.width = '50%'; // Увеличиваем с 40% до 50%
+            grabIndicator.style.height = '50%'; // Увеличиваем с 40% до 50%
             grabIndicator.style.borderRadius = '50%';
-            grabIndicator.style.backgroundColor = 'rgba(255, 255, 255, 0.3)';
+            grabIndicator.style.backgroundColor = 'rgba(255, 255, 255, 0.4)'; // Более заметный индикатор
             grabIndicator.style.display = 'flex';
             grabIndicator.style.justifyContent = 'center';
             grabIndicator.style.alignItems = 'center';
             grabIndicator.style.pointerEvents = 'none';
+            grabIndicator.style.boxShadow = '0 0 8px rgba(255, 255, 255, 0.5)'; // Добавляем свечение
             
             const grabIcon = document.createElement('div');
-            grabIcon.style.width = '50%';
-            grabIcon.style.height = '50%';
+            grabIcon.style.width = '60%'; // Увеличиваем размер
+            grabIcon.style.height = '60%'; // Увеличиваем размер
             grabIcon.style.borderRadius = '50%';
-            grabIcon.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
+            grabIcon.style.backgroundColor = 'rgba(255, 255, 255, 0.7)'; // Более контрастный цвет
             
             grabIndicator.appendChild(grabIcon);
             dragHandle.appendChild(grabIndicator);
+            
+            // Добавляем текстовую подсказку для мобильных устройств
+            const hintText = document.createElement('div');
+            hintText.textContent = 'Перетащи меня';
+            hintText.style.position = 'absolute';
+            hintText.style.bottom = '-20px';
+            hintText.style.left = '50%';
+            hintText.style.transform = 'translateX(-50%)';
+            hintText.style.fontSize = '12px';
+            hintText.style.color = 'rgba(255, 255, 255, 0.7)';
+            hintText.style.whiteSpace = 'nowrap';
+            hintText.style.pointerEvents = 'none';
+            
+            // Добавляем анимацию пульсации для привлечения внимания
+            hintText.style.animation = 'pulse 1.5s infinite';
+            
+            // Скрываем подсказку после первого использования
+            if (localStorage.getItem('blockBlastTutorialSeen')) {
+                hintText.style.display = 'none';
+            }
+            
+            block.appendChild(hintText);
         }
         
         block.appendChild(fragment);
@@ -370,8 +503,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectedBlockId = blockId;
                 block.classList.add('dragging');
                 
+                // Сохраняем, что пользователь уже видел подсказку
+                localStorage.setItem('blockBlastTutorialSeen', 'true');
+                
+                // Скрываем все подсказки
+                document.querySelectorAll('.block div[style*="Перетащи меня"]').forEach(hint => {
+                    hint.style.display = 'none';
+                });
+                
                 block.style.transform = 'scale(1.05)';
                 
+                // Усиливаем тактильную обратную связь
                 if (window.navigator.vibrate) {
                     window.navigator.vibrate(50);
                 }
@@ -679,6 +821,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('Состояние сетки:', gridState);
                 console.log('Доступные блоки:', Object.keys(blockShapes).length, blockShapes);
                 
+                // Добавляем защиту от преждевременного GameOver
+                // Игра не должна завершаться, если сетка почти пустая или занято менее 25% ячеек
+                if (gridState.filled < 25) {
+                    console.log('Сетка почти пуста, пропускаем проверку завершения игры');
+                    return;
+                }
+                
+                // Если это начало игры (первые несколько ходов), не проверяем завершение
+                const scoreValue = GameCore.getScore();
+                if (scoreValue === 0 && gridState.filled < 15) {
+                    console.log('Начало игры, пропускаем проверку завершения');
+                    return;
+                }
+                
+                // Проверка только если прошло некоторое время после начала игры
                 const canPlace = GameCore.canPlaceAnyBlock(blockShapes);
                 console.log('Результат проверки размещения:', canPlace);
                 
