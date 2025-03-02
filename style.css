@@ -7,8 +7,8 @@ body {
     font-family: Arial, sans-serif;
     margin: 0;
     color: white;
-    overflow: hidden; 
-    touch-action: none; 
+    overflow: hidden; /* Предотвращаем прокрутку страницы на мобильных устройствах */
+    touch-action: none; /* Улучшаем обработку касаний на мобильных устройствах */
 }
 
 .game-container {
@@ -115,7 +115,6 @@ body {
     margin-top: 10px;
     width: 100%;
     max-width: 400px;
-    gap: 10px;
 }
 
 .block {
@@ -123,43 +122,21 @@ body {
     padding: 5px;
     border-radius: 5px;
     cursor: grab;
-    transition: transform 0.15s ease-out;
+    transition: transform 0.2s;
     background: transparent;
     margin: 0 5px;
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 10;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    touch-action: none; 
 }
 
-.drag-handle {
-    touch-action: none;
-    z-index: 5;
-    user-select: none;
-    -webkit-user-select: none;
-}
-
-.drag-handle:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-}
-
-.drag-handle:active {
-    background-color: rgba(255, 255, 255, 0.2);
+.block:active {
     cursor: grabbing;
-}
-
-.block:hover,
-.block:focus-within {
-    z-index: 20;
-    transform: scale(1.03);
+    transform: scale(1.05);
 }
 
 .block.dragging {
-    z-index: 30;
-    opacity: 0.9;
-    filter: brightness(1.1);
+    opacity: 0.7;
 }
 
 .block-cell {
@@ -168,102 +145,18 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.5);
     box-sizing: border-box;
     transition: 0.2s;
+    /* Эффект объемности */
     box-shadow: 
         inset 2px 2px 2px rgba(255, 255, 255, 0.5),
         inset -2px -2px 2px rgba(0, 0, 0, 0.2);
 }
 
-.block[data-size="small"] .block-cell {
-    box-shadow: 
-        inset 2px 2px 3px rgba(255, 255, 255, 0.6),
-        inset -2px -2px 3px rgba(0, 0, 0, 0.2);
-    border-radius: 3px;
-}
-
-.block[data-size="large"] .block-cell {
-    box-shadow: 
-        inset 3px 3px 5px rgba(255, 255, 255, 0.4),
-        inset -3px -3px 5px rgba(0, 0, 0, 0.3);
-}
-
+/* Стили для подсказки размещения */
 .placement-preview {
     position: absolute;
     background-color: rgba(255, 255, 255, 0.3);
     border: 2px solid white;
     border-radius: 2px;
     pointer-events: none;
-    z-index: 20;
-    box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
-}
-
-.placement-info {
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-    font-family: Arial, sans-serif;
-    letter-spacing: 0.5px;
-}
-
-.grab-indicator {
-    opacity: 0.7;
-    transition: opacity 0.2s, transform 0.2s;
-    pointer-events: none;
-}
-
-.block:hover .grab-indicator,
-.block:active .grab-indicator {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1.1);
-}
-
-.block.dragging .grab-indicator {
-    opacity: 0;
-}
-
-@media (min-width: 1024px) {
-    .grab-indicator {
-        display: none !important;
-    }
-}
-
-@media (max-width: 768px) {
-    .block {
-        margin-bottom: 15px;
-    }
-    
-    .blocks {
-        padding: 15px;
-    }
-    
-    .drag-handle::before {
-        content: '';
-        position: absolute;
-        top: -5px;
-        left: -5px;
-        right: -5px;
-        bottom: -5px;
-        z-index: 1;
-    }
-    
-    .placement-preview {
-        border: 3px solid rgba(255, 255, 255, 0.8);
-        box-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
-    }
-    
-    .placement-info {
-        font-size: 14px !important;
-        padding: 4px 10px !important;
-    }
-    
-    .grid {
-        box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
-    }
-    
-    .cell {
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    
-    button {
-        min-height: 44px;
-        padding: 12px 20px;
-    }
+    z-index: 10;
 }
