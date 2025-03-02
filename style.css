@@ -115,6 +115,7 @@ body {
     margin-top: 10px;
     width: 100%;
     max-width: 400px;
+    gap: 10px;
 }
 
 .block {
@@ -122,21 +123,41 @@ body {
     padding: 5px;
     border-radius: 5px;
     cursor: grab;
-    transition: transform 0.2s;
+    transition: transform 0.2s, box-shadow 0.2s;
     background: transparent;
     margin: 0 5px;
     display: flex;
     justify-content: center;
     align-items: center;
+    /* Делаем блок заметно крупнее при активации на мобильных */
+    touch-action: none;
 }
 
-.block:active {
+.drag-handle {
+    z-index: 10;
+    /* Визуальный эффект при активных состояниях */
+    transition: background-color 0.2s;
+    border-radius: 5px;
+}
+
+.drag-handle:active {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.block:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+}
+
+.block:active, .block.dragging {
     cursor: grabbing;
     transform: scale(1.05);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.3);
 }
 
 .block.dragging {
-    opacity: 0.7;
+    opacity: 0.8;
+    z-index: 100;
 }
 
 .block-cell {
@@ -149,6 +170,20 @@ body {
     box-shadow: 
         inset 2px 2px 2px rgba(255, 255, 255, 0.5),
         inset -2px -2px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Стили для блоков разного размера */
+.block[data-size="small"] .block-cell {
+    box-shadow: 
+        inset 2px 2px 3px rgba(255, 255, 255, 0.6),
+        inset -2px -2px 3px rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+}
+
+.block[data-size="large"] .block-cell {
+    box-shadow: 
+        inset 3px 3px 5px rgba(255, 255, 255, 0.4),
+        inset -3px -3px 5px rgba(0, 0, 0, 0.3);
 }
 
 /* Стили для подсказки размещения */

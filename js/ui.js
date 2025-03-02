@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const blocksContainer = document.getElementById('blocks');
     const scoreElement = document.getElementById('score');
     const highScoreElement = document.querySelector('.high-score');
+    const gameContainer = document.querySelector('.game-container');
     
     let blockShapes = [];
     let cellSize = 0;
@@ -13,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let placementPreview = null;
     let isShowingPreview = false;
     let gridCells = [];
+    let animationFrameId = null;
 
     const debounce = (func, wait) => {
         let timeout;
@@ -21,6 +23,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const args = arguments;
             clearTimeout(timeout);
             timeout = setTimeout(() => func.apply(context, args), wait);
+        };
+    };
+
+    const throttle = (func, limit) => {
+        let inThrottle;
+        return function() {
+            const args = arguments;
+            const context = this;
+            if (!inThrottle) {
+                func.apply(context, args);
+                inThrottle = true;
+                setTimeout(() => inThrottle = false, limit);
+            }
         };
     };
 
@@ -40,16 +55,24 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener('resize', debounce(() => {
             cellSize = GameCore.calculateCellSize(grid);
             GameCore.setCellSize(cellSize);
-            updateBlockSizes();
+            
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+            
+            animationFrameId = requestAnimationFrame(() => {
+                updateBlockSizes();
+                animationFrameId = null;
+            });
         }, 250));
     }
 
     function setupInputEvents() {
         if (isTouchDevice) {
-            document.addEventListener('touchmove', handleTouchMove, { passive: false });
+            document.addEventListener('touchmove', throttle(handleTouchMove, 16), { passive: false });
             document.addEventListener('touchend', handleTouchEnd);
         } else {
-            document.addEventListener('dragover', handleGlobalDragOver);
+            document.addEventListener('dragover', throttle(handleGlobalDragOver, 16));
         }
     }
 
@@ -71,11 +94,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const col = Math.floor(mouseX / cellSize);
         const row = Math.floor(mouseY / cellSize);
         
+        if (!blockShapes[selectedBlockId]) return;
+        
         const shape = blockShapes[selectedBlockId].shape;
         const color = blockShapes[selectedBlockId].color;
         const canPlace = GameCore.checkPlacement(row, col, shape);
         
-        showPlacementPreview(row, col, shape, color, canPlace);
+        if (!isShowingPreview) {
+            isShowingPreview = true;
+            requestAnimationFrame(() => {
+                showPlacementPreview(row, col, shape, color, canPlace);
+                isShowingPreview = false;
+            });
+        }
     }
 
     function handleTouchEnd(e) {
@@ -86,9 +117,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const mouseX = touch.clientX - gridRect.left;
         const mouseY = touch.clientY - gridRect.top;
         
+        const blockElement = document.querySelector(`.block[data-block-id="${selectedBlockId}"]`);
+        
         if (mouseX < 0 || mouseY < 0 || mouseX > gridRect.width || mouseY > gridRect.height) {
             removePlacementPreview();
-            document.querySelector(`.block[data-block-id="${selectedBlockId}"]`).classList.remove('dragging');
+            if (blockElement) {
+                blockElement.classList.remove('dragging');
+            }
             selectedBlockId = null;
             return;
         }
@@ -96,15 +131,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const col = Math.floor(mouseX / cellSize);
         const row = Math.floor(mouseY / cellSize);
         
+        if (!blockShapes[selectedBlockId]) {
+            if (blockElement) {
+                blockElement.classList.remove('dragging');
+            }
+            selectedBlockId = null;
+            return;
+        }
+        
         const shape = blockShapes[selectedBlockId].shape;
         const color = blockShapes[selectedBlockId].color;
         
         if (GameCore.checkPlacement(row, col, shape)) {
             GameCore.placeBlock(row, col, shape, color);
             
-            const usedBlock = document.querySelector(`.block[data-block-id="${selectedBlockId}"]`);
-            if (usedBlock) {
-                usedBlock.remove();
+            if (blockElement) {
+                blockElement.remove();
             }
             
             GameCore.checkLines(updateScore);
@@ -117,7 +159,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         removePlacementPreview();
-        document.querySelector(`.block[data-block-id="${selectedBlockId}"]`).classList.remove('dragging');
+        if (blockElement) {
+            blockElement.classList.remove('dragging');
+        }
         selectedBlockId = null;
     }
 
@@ -129,7 +173,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const shape = blockShapes[blockId].shape;
             const rows = shape.length;
             const cols = Math.max(...shape.map(row => row.length));
-            const blockCellSize = cellSize * 0.8;
+            
+            let blockCellSize = cellSize * 0.8;
+            let sizeCategory = "medium";
+            
+            if (rows * cols <= 2) {
+                blockCellSize = cellSize * 0.9;
+                sizeCategory = "small";
+            } else if (rows * cols >= 6) {
+                blockCellSize = cellSize * 0.7;
+                sizeCategory = "large";
+            }
+            
+            block.dataset.size = sizeCategory;
             
             block.style.width = cols * blockCellSize + 'px';
             block.style.height = rows * blockCellSize + 'px';
@@ -172,7 +228,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const rows = shape.length;
         const cols = Math.max(...shape.map(row => row.length));
         
-        const blockCellSize = cellSize * 0.8;
+        let blockCellSize = cellSize * 0.8;
+        let sizeCategory = "medium";
+        
+        if (rows * cols <= 2) {
+            blockCellSize = cellSize * 0.9;
+            sizeCategory = "small";
+        } else if (rows * cols >= 6) {
+            blockCellSize = cellSize * 0.7;
+            sizeCategory = "large";
+        }
+        
+        block.dataset.size = sizeCategory;
+        
         block.style.width = cols * blockCellSize + 'px';
         block.style.height = rows * blockCellSize + 'px';
         
@@ -194,16 +262,36 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
+        const dragHandle = document.createElement('div');
+        dragHandle.classList.add('drag-handle');
+        dragHandle.style.position = 'absolute';
+        dragHandle.style.top = '0';
+        dragHandle.style.left = '0';
+        dragHandle.style.width = '100%';
+        dragHandle.style.height = '100%';
+        dragHandle.style.cursor = 'grab';
+        
         block.appendChild(fragment);
+        block.appendChild(dragHandle);
         
         if (isTouchDevice) {
-            block.addEventListener('touchstart', (e) => {
+            dragHandle.addEventListener('touchstart', (e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 selectedBlockId = blockId;
                 block.classList.add('dragging');
-            });
+                
+                if (window.navigator.vibrate) {
+                    window.navigator.vibrate(50);
+                }
+            }, { passive: false });
         } else {
             block.draggable = true;
+            
+            block.querySelectorAll('.block-cell').forEach(cell => {
+                cell.style.pointerEvents = 'none';
+            });
+            
             block.addEventListener('dragstart', (e) => {
                 e.dataTransfer.setData('blockId', blockId);
                 
@@ -265,8 +353,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const fragment = document.createDocumentFragment();
         
-        for (let i = 0; i < shape.length; i++) {
-            for (let j = 0; j < shape[i].length; j++) {
+        const rows = shape.length;
+        for (let i = 0; i < rows; i++) {
+            const rowWidth = shape[i].length;
+            for (let j = 0; j < rowWidth; j++) {
                 if (shape[i][j]) {
                     const newRow = row + i;
                     const newCol = col + j;
@@ -369,8 +459,9 @@ document.addEventListener('DOMContentLoaded', () => {
             pointsAnim.style.left = '50%';
             pointsAnim.style.transform = 'translate(-50%, -50%)';
             pointsAnim.style.animation = 'flyUp 1s forwards';
+            pointsAnim.style.pointerEvents = 'none';
             
-            document.querySelector('.game-container').appendChild(pointsAnim);
+            gameContainer.appendChild(pointsAnim);
             
             if (!document.getElementById('animation-styles')) {
                 const styleSheet = document.createElement('style');

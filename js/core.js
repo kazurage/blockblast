@@ -1,16 +1,45 @@
 const GameCore = (() => {
+    // Расширенный набор шаблонов блоков, включая блоки разного размера
     const blockTemplates = [
-        [[1, 1], [1, 1]],
-        [[1, 1, 1]],
-        [[1], [1], [1]],
-        [[1, 1, 1], [0, 1, 0]],
-        [[1, 1], [0, 1], [0, 1]],
-        [[1, 1], [1, 0], [1, 0]],
-        [[1, 1, 0], [0, 1, 1]],
-        [[0, 1, 1], [1, 1, 0]]
+        // Маленькие блоки (размер 1-2)
+        [[1]],                            // 1×1 точка
+        [[1, 1]],                         // 1×2 горизонтальная линия
+        [[1], [1]],                       // 2×1 вертикальная линия
+        
+        // Средние блоки (размер 2-4)
+        [[1, 1], [1, 1]],                 // 2×2 квадрат
+        [[1, 1, 1]],                      // 1×3 горизонтальная линия
+        [[1], [1], [1]],                  // 3×1 вертикальная линия
+        [[1, 1, 1], [0, 1, 0]],           // Т-образная форма
+        [[1, 1], [0, 1], [0, 1]],         // Г-образная форма
+        [[1, 1], [1, 0], [1, 0]],         // Обратная Г-форма
+        [[1, 1, 0], [0, 1, 1]],           // Z-образная форма
+        [[0, 1, 1], [1, 1, 0]],           // S-образная форма
+        
+        // Большие блоки (размер 4-6)
+        [[1, 1, 1, 1]],                   // 1×4 горизонтальная линия
+        [[1], [1], [1], [1]],             // 4×1 вертикальная линия
+        [[1, 1, 1], [1, 0, 0], [1, 0, 0]], // L-образная форма большая
+        [[1, 1, 1], [0, 0, 1], [0, 0, 1]], // Обратная L-форма большая
+        [[1, 0, 0], [1, 1, 1], [1, 0, 0]], // Крестообразная форма
+        [[0, 1, 0], [1, 1, 1], [0, 1, 0]], // Плюс
+        [[1, 1, 1, 1], [1, 0, 0, 0]],      // Большая Г-форма
+        [[1, 1], [1, 1], [1, 1]]           // 2×3 прямоугольник
     ];
     
-    const colors = ['#4169E1', '#50C878', '#FF4500', '#9370DB', '#FFD700', '#87CEEB'];
+    // Весовые категории блоков для более сбалансированной рандомизации
+    const blockWeights = [
+        // Маленькие блоки - более высокий шанс выпадения
+        { indices: [0, 1, 2], weight: 15 },
+        // Средние блоки - средний шанс выпадения
+        { indices: [3, 4, 5, 6, 7, 8, 9, 10], weight: 10 },
+        // Большие блоки - меньший шанс выпадения
+        { indices: [11, 12, 13, 14, 15, 16, 17, 18], weight: 5 }
+    ];
+    
+    // История последних сгенерированных блоков, чтобы избежать повторов
+    let lastGeneratedBlockIndices = [];
+    const colors = ['#4169E1', '#50C878', '#FF4500', '#9370DB', '#FFD700', '#87CEEB', '#FF69B4', '#32CD32', '#FF7F50'];
     let cellSize = 0;
     let score = 0;
     let highScore = 0;
@@ -48,31 +77,97 @@ const GameCore = (() => {
         return gridCells;
     }
     
+    // Функция взвешенной рандомизации
+    function weightedRandom() {
+        // Вычисляем общую сумму весов
+        const totalWeight = blockWeights.reduce((sum, category) => sum + category.weight, 0);
+        
+        // Генерируем случайное число от 0 до суммы весов
+        let random = Math.random() * totalWeight;
+        
+        // Находим категорию блоков на основе весов
+        for (let category of blockWeights) {
+            if (random < category.weight) {
+                // Выбираем случайный блок из этой категории, избегая повторов
+                let availableIndices = category.indices.filter(idx => !lastGeneratedBlockIndices.includes(idx));
+                
+                // Если все блоки из категории уже были недавно сгенерированы, используем все индексы
+                if (availableIndices.length === 0) {
+                    availableIndices = [...category.indices];
+                }
+                
+                const selectedIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+                
+                // Сохраняем индекс в истории (максимум 5 последних блоков)
+                lastGeneratedBlockIndices.push(selectedIndex);
+                if (lastGeneratedBlockIndices.length > 5) {
+                    lastGeneratedBlockIndices.shift();
+                }
+                
+                return selectedIndex;
+            }
+            random -= category.weight;
+        }
+        
+        // Если по какой-то причине мы здесь, возвращаем случайный индекс
+        return Math.floor(Math.random() * blockTemplates.length);
+    }
+    
     function generateBlockShape() {
-        return blockTemplates[Math.floor(Math.random() * blockTemplates.length)];
+        const selectedIndex = weightedRandom();
+        return blockTemplates[selectedIndex];
     }
     
     function generateBlockColor() {
-        return colors[Math.floor(Math.random() * colors.length)];
+        // Исключаем использование того же цвета дважды подряд
+        let availableColors = [...colors];
+        const lastColors = blockShapes.map(block => block.color);
+        
+        if (lastColors.length > 0) {
+            availableColors = availableColors.filter(color => !lastColors.includes(color));
+            
+            // Если все цвета уже использованы, сбрасываем ограничение
+            if (availableColors.length === 0) {
+                availableColors = [...colors];
+            }
+        }
+        
+        return availableColors[Math.floor(Math.random() * availableColors.length)];
     }
     
     function checkPlacement(row, col, shape) {
         const gridWidth = 10;
         
-        for (let i = 0; i < shape.length; i++) {
-            for (let j = 0; j < shape[i].length; j++) {
+        // Быстрая проверка границ в целом перед перебором ячеек
+        const rows = shape.length;
+        const lastRowIndex = row + rows - 1;
+        
+        if (lastRowIndex >= 10 || row < 0) {
+            return false;
+        }
+        
+        // Найдем максимальную ширину блока
+        let maxWidth = 0;
+        for (let i = 0; i < rows; i++) {
+            maxWidth = Math.max(maxWidth, shape[i].length);
+        }
+        
+        const lastColIndex = col + maxWidth - 1;
+        if (lastColIndex >= 10 || col < 0) {
+            return false;
+        }
+        
+        // Теперь проверяем каждую ячейку
+        for (let i = 0; i < rows; i++) {
+            const rowWidth = shape[i].length;
+            for (let j = 0; j < rowWidth; j++) {
                 if (shape[i][j]) {
                     const newRow = row + i;
                     const newCol = col + j;
                     
-                    if (newRow >= 10 || newCol >= 10 || newRow < 0 || newCol < 0) {
-                        return false;
-                    }
-                    
                     const targetIndex = newRow * gridWidth + newCol;
-                    const targetCell = gridCells[targetIndex];
-                    
-                    if (!targetCell || targetCell.classList.contains('filled')) {
+                    // Ячейка уже проверена по общим границам выше
+                    if (gridCells[targetIndex].classList.contains('filled')) {
                         return false;
                     }
                 }
@@ -84,9 +179,15 @@ const GameCore = (() => {
     
     function placeBlock(row, col, shape, color) {
         const gridWidth = 10;
+        const rows = shape.length;
         
-        for (let i = 0; i < shape.length; i++) {
-            for (let j = 0; j < shape[i].length; j++) {
+        // Используем DocumentFragment для более эффективного изменения DOM
+        const fragment = document.createDocumentFragment();
+        const cellsToUpdate = [];
+        
+        for (let i = 0; i < rows; i++) {
+            const rowWidth = shape[i].length;
+            for (let j = 0; j < rowWidth; j++) {
                 if (shape[i][j]) {
                     const newRow = row + i;
                     const newCol = col + j;
@@ -94,11 +195,18 @@ const GameCore = (() => {
                     const targetIndex = newRow * gridWidth + newCol;
                     const targetCell = gridCells[targetIndex];
                     
-                    targetCell.classList.add('filled');
-                    targetCell.style.backgroundColor = color;
+                    cellsToUpdate.push({ cell: targetCell, color });
                 }
             }
         }
+        
+        // Группируем обновления для улучшения производительности
+        requestAnimationFrame(() => {
+            cellsToUpdate.forEach(item => {
+                item.cell.classList.add('filled');
+                item.cell.style.backgroundColor = item.color;
+            });
+        });
     }
     
     function checkLines(onLinesClear) {
@@ -175,22 +283,98 @@ const GameCore = (() => {
     }
     
     function canPlaceAnyBlock(shapes) {
+        // Кэшируем информацию о занятых ячейках для ускорения проверки
+        const filledCells = new Set();
+        gridCells.forEach((cell, index) => {
+            if (cell.classList.contains('filled')) {
+                filledCells.add(index);
+            }
+        });
+        
+        // Проверяем только по периметру заполненных ячеек
+        // и пустым ячейкам рядом с ними, вместо всей сетки
+        const gridWidth = 10;
+        const cellsToCheck = new Set();
+        
+        // Если сетка пуста, проверяем только центр
+        if (filledCells.size === 0) {
+            // Проверяем только центральную область для пустой сетки
+            for (let row = 3; row < 7; row++) {
+                for (let col = 3; col < 7; col++) {
+                    cellsToCheck.add(row * gridWidth + col);
+                }
+            }
+        } else {
+            // Исследуем периметр заполненных клеток
+            filledCells.forEach(index => {
+                const row = Math.floor(index / gridWidth);
+                const col = index % gridWidth;
+                
+                // Добавляем соседние ячейки
+                for (let r = Math.max(0, row - 1); r <= Math.min(9, row + 1); r++) {
+                    for (let c = Math.max(0, col - 1); c <= Math.min(9, col + 1); c++) {
+                        const neighborIndex = r * gridWidth + c;
+                        if (!filledCells.has(neighborIndex)) {
+                            cellsToCheck.add(neighborIndex);
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Проверяем возможность размещения для каждого блока
         for (let blockId in shapes) {
             const shape = shapes[blockId].shape;
             
+            for (let cellIndex of cellsToCheck) {
+                const row = Math.floor(cellIndex / gridWidth);
+                const col = cellIndex % gridWidth;
+                
+                if (checkPlacement(row, col, shape)) {
+                    return true;
+                }
+            }
+        }
+        
+        // Если нужно, проверяем все остальные ячейки (более редкий сценарий)
+        if (cellsToCheck.size < 50) {
             for (let row = 0; row < 10; row++) {
                 for (let col = 0; col < 10; col++) {
-                    if (checkPlacement(row, col, shape)) {
-                        return true;
+                    const index = row * gridWidth + col;
+                    
+                    if (!cellsToCheck.has(index) && !filledCells.has(index)) {
+                        for (let blockId in shapes) {
+                            const shape = shapes[blockId].shape;
+                            if (checkPlacement(row, col, shape)) {
+                                return true;
+                            }
+                        }
                     }
                 }
             }
         }
+        
         return false;
     }
     
     function resetScore() {
         score = 0;
+    }
+    
+    function setCellSize(size) {
+        cellSize = size;
+    }
+    
+    function setBlockShapes(shapes) {
+        blockShapes = shapes;
+    }
+    
+    function getScore() {
+        return score;
+    }
+    
+    function getHighScore() {
+        return highScore;
     }
     
     return {
@@ -203,9 +387,9 @@ const GameCore = (() => {
         checkLines,
         canPlaceAnyBlock,
         resetScore,
-        getScore: () => score,
-        getHighScore: () => highScore,
-        setBlockShapes: (shapes) => blockShapes = shapes,
-        setCellSize: (size) => cellSize = size,
+        setCellSize,
+        setBlockShapes,
+        getScore,
+        getHighScore
     };
 })();
