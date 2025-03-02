@@ -112,9 +112,11 @@ body {
 .blocks {
     display: flex;
     justify-content: space-around;
+    flex-wrap: wrap;
     margin-top: 10px;
     width: 100%;
     max-width: 400px;
+    gap: 10px;
 }
 
 .block {
@@ -124,7 +126,7 @@ body {
     cursor: grab;
     transition: transform 0.2s;
     background: transparent;
-    margin: 0 5px;
+    margin: 0 5px 10px 5px;
     display: flex;
     justify-content: center;
     align-items: center;

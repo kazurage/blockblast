@@ -7,8 +7,27 @@ const GameCore = (() => {
         [[1, 1], [0, 1], [0, 1]],
         [[1, 1], [1, 0], [1, 0]],
         [[1, 1, 0], [0, 1, 1]],
-        [[0, 1, 1], [1, 1, 0]]
+        [[0, 1, 1], [1, 1, 0]],
+        [[1, 1, 1, 1]],
+        [[1], [1], [1], [1]],
+        [[1, 1], [1, 1], [1, 1]],
+        [[1, 1, 1], [1, 1, 1]],
+        [[1, 0], [1, 1], [0, 1]],
+        [[1, 0, 0], [1, 1, 1]],
+        [[0, 0, 1], [1, 1, 1]],
+        [[1, 1, 1], [1, 0, 1]],
+        [[1, 0, 1], [1, 1, 1]],
+        [[1]],
+        [[1, 1]],
+        [[1], [1]],
+        [[1, 1, 1, 1, 1]],
+        [[1], [1], [1], [1], [1]],
+        [[1, 1, 0], [0, 1, 0], [0, 1, 1]],
+        [[1, 1], [1, 0]],
+        [[1, 1], [0, 1]]
     ];
+    
+    const blockSizes = ['small', 'medium', 'large'];
     
     const colors = ['#4169E1', '#50C878', '#FF4500', '#9370DB', '#FFD700', '#87CEEB'];
     let cellSize = 0;
@@ -54,6 +73,10 @@ const GameCore = (() => {
     
     function generateBlockColor() {
         return colors[Math.floor(Math.random() * colors.length)];
+    }
+    
+    function generateBlockSize() {
+        return blockSizes[Math.floor(Math.random() * blockSizes.length)];
     }
     
     function checkPlacement(row, col, shape) {
@@ -196,6 +219,7 @@ const GameCore = (() => {
     return {
         generateBlockShape,
         generateBlockColor,
+        generateBlockSize,
         calculateCellSize,
         createGrid,
         checkPlacement,

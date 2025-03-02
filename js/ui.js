@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedBlockId = null;
     let currentDraggingShape = null;
     let currentDraggingColor = null;
+    let currentDraggingSize = null;
     let placementPreview = null;
     let isShowingPreview = false;
     let gridCells = [];
@@ -185,9 +186,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!blockShapes[blockId]) return;
             
             const shape = blockShapes[blockId].shape;
+            const size = blockShapes[blockId].size || 'medium';
             const rows = shape.length;
             const cols = Math.max(...shape.map(row => row.length));
-            const blockCellSize = cellSize * 0.8;
+            
+            let blockCellSize = cellSize * 0.8;
+            
+            if (size === 'small') {
+                blockCellSize = cellSize * 0.6;
+            } else if (size === 'large') {
+                blockCellSize = cellSize * 1.0;
+            }
             
             block.style.width = cols * blockCellSize + 'px';
             block.style.height = rows * blockCellSize + 'px';
@@ -197,7 +206,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 cell.style.height = blockCellSize + 'px';
             });
             
-            // Пересчитываем позиции всех ячеек блока
             block.querySelectorAll('.block-cell').forEach((cell, index) => {
                 const row = Math.floor(index / cols);
                 const col = index % cols;
@@ -216,10 +224,12 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const fragment = document.createDocumentFragment();
         
+        // Всегда генерируем ровно 3 блока
         for (let i = 0; i < 3; i++) {
             const shape = GameCore.generateBlockShape();
             const color = GameCore.generateBlockColor();
-            const block = createBlock(shape, color, i);
+            const size = GameCore.generateBlockSize();
+            const block = createBlock(shape, color, i, size);
             fragment.appendChild(block);
         }
         
@@ -227,7 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
         GameCore.setBlockShapes(blockShapes);
     }
 
-    function createBlock(shape, color, blockId) {
+    function createBlock(shape, color, blockId, size) {
         const block = document.createElement('div');
         block.classList.add('block');
         block.dataset.blockId = blockId;
@@ -236,13 +246,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const rows = shape.length;
         const cols = Math.max(...shape.map(row => row.length));
         
-        const blockCellSize = cellSize * 0.8;
+        let blockCellSize = cellSize * 0.8;
+        
+        if (size === 'small') {
+            blockCellSize = cellSize * 0.6;
+        } else if (size === 'large') {
+            blockCellSize = cellSize * 1.0;
+        }
+        
         block.style.width = cols * blockCellSize + 'px';
         block.style.height = rows * blockCellSize + 'px';
         
         const fragment = document.createDocumentFragment();
         
-        // Создаем ячейки блока
         for (let i = 0; i < rows; i++) {
             for (let j = 0; j < (shape[i] ? shape[i].length : 0); j++) {
                 if (shape[i][j]) {
@@ -262,7 +278,6 @@ document.addEventListener('DOMContentLoaded', () => {
         block.appendChild(fragment);
         
         if (isTouchDevice) {
-            // Улучшенная обработка касаний
             block.addEventListener('touchstart', (e) => {
                 e.preventDefault();
                 selectedBlockId = blockId;
@@ -272,13 +287,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 block.classList.add('dragging');
             });
         } else {
-            // Настройка перетаскивания для ПК
             block.draggable = true;
             
             block.addEventListener('dragstart', (e) => {
                 e.dataTransfer.setData('blockId', blockId);
                 
-                // Создаем невидимое изображение для перетаскивания
                 const dragImage = document.createElement('div');
                 dragImage.style.opacity = '0';
                 document.body.appendChild(dragImage);
@@ -287,6 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 block.classList.add('dragging');
                 currentDraggingShape = shape;
                 currentDraggingColor = color;
+                currentDraggingSize = size;
                 
                 setTimeout(() => {
                     dragImage.remove();
@@ -298,10 +312,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 removePlacementPreview();
                 currentDraggingShape = null;
                 currentDraggingColor = null;
+                currentDraggingSize = null;
             });
         }
         
-        blockShapes[blockId] = { shape, color };
+        blockShapes[blockId] = { shape, color, size };
         return block;
     }
 
@@ -338,6 +353,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const previewCells = [];
         
         const fragment = document.createDocumentFragment();
+        
+        let size = 'medium';
+        
+        if (currentDraggingSize) {
+            size = currentDraggingSize;
+        } else if (selectedBlockId !== null && blockShapes[selectedBlockId]) {
+            size = blockShapes[selectedBlockId].size || 'medium';
+        }
         
         for (let i = 0; i < shape.length; i++) {
             for (let j = 0; j < shape[i].length; j++) {
@@ -428,6 +451,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         currentDraggingShape = null;
         currentDraggingColor = null;
+        currentDraggingSize = null;
     }
 
     function updateScore(points) {
