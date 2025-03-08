@@ -29,7 +29,19 @@ const GameCore = (() => {
     
     const blockSizes = ['small', 'medium', 'large'];
     
-    const colors = ['#4169E1', '#50C878', '#FF4500', '#9370DB', '#FFD700', '#87CEEB'];
+    const colors = [
+        '#FF3366', // Розовый
+        '#33CCFF', // Голубой 
+        '#FFCC00', // Желтый
+        '#66FF66', // Зеленый
+        '#CC33FF', // Фиолетовый
+        '#FF6633', // Оранжевый
+        '#00FFCC', // Бирюзовый
+        '#FF66CC', // Розово-фиолетовый
+        '#66CCFF', // Светло-голубой
+        '#33FF99'  // Мятный
+    ];
+    
     let cellSize = 0;
     let score = 0;
     let highScore = 0;
@@ -216,6 +228,13 @@ const GameCore = (() => {
         score = 0;
     }
     
+    // Функция для установки счета
+    function setScore(newScore) {
+        score = newScore;
+        // Обновляем также высший счет при необходимости
+        highScore = Math.max(highScore, score);
+    }
+    
     return {
         generateBlockShape,
         generateBlockColor,
@@ -229,6 +248,7 @@ const GameCore = (() => {
         resetScore,
         getScore: () => score,
         getHighScore: () => highScore,
+        setScore, // Добавляем новую функцию в публичное API
         setBlockShapes: (shapes) => blockShapes = shapes,
         setCellSize: (size) => cellSize = size,
     };
